@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pêndulo simples 3D em RA (AR.js)</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <!-- AR.js para A-Frame -->
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      margin: 4px 0;
+      text-align: center;
+      font-size: 1.2rem;
+    }
+
+    #container {
+      background: white;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      max-width: 900px;
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .scene-wrapper {
+      width: 100%;
+      max-width: 800px;
+      aspect-ratio: 4 / 3;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    a-scene {
+      width: 100%;
+      height: 100%;
+    }
+
+    .info {
+      font-size: 0.85rem;
+      color: #444;
+      text-align: center;
+    }
+
+    .controles {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .linha-controle {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .linha-controle label {
+      font-size: 0.9rem;
+    }
+
+    .linha-controle input[type="range"] {
+      width: 100%;
+    }
+
+    .linha-botoes {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 6px 14px;
+      font-size: 0.9rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .painel-info {
+      width: 100%;
+      background: #f0f6ff;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      box-sizing: border-box;
+    }
+
+    .painel-info strong {
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pêndulo Simples em Realidade Aumentada</h1>
+
+  <div id="container">
+    <div class="scene-wrapper">
+      <!-- Cena 3D + RA -->
+      <a-scene
+        embedded
+        vr-mode-ui="enabled: false"
+        renderer="logarithmicDepthBuffer: true"
+        arjs="sourceType: webcam; debugUIEnabled: false;">
+        
+        <!-- Marker Hiro: tudo que estiver dentro dele aparece em cima do marcador -->
+        <a-marker preset="hiro">
+          <!-- Pequeno "chão" sobre o marcador para referência -->
+          <a-plane rotation="-90 0 0" width="1.5" height="1.5" color="#dddddd"></a-plane>
+
+          <!-- Pêndulo ancorado no marcador -->
+          <a-entity id="penduloRig" position="0 0.8 0">
+            <!-- Haste (redimensionada no JS) -->
+            <a-box id="haste"
+                   position="0 -0.5 0"
+                   depth="0.02"
+                   width="0.02"
+                   height="1"
+                   color="#555555">
+            </a-box>
+
+            <!-- Esfera (massa) na ponta da haste -->
+            <a-sphere id="massa"
+                      position="0 -1 0"
+                      radius="0.08"
+                      color="#0077cc">
+            </a-sphere>
+          </a-entity>
+        </a-marker>
+
+        <!-- Câmera controlada pelo AR.js -->
+        <a-entity camera></a-entity>
+      </a-scene>
+    </div>
+
+    <div class="painel-info">
+      <div>
+        <strong>Gravidade atual:</strong> <span id="gravityValue">9.8</span> m/s² |
+        <strong>Massa:</strong> <span id="massValue">1.0</span> kg
+      </div>
+      <div>
+        Neste modelo ideal (sem atrito, fio sem massa), a <strong>massa</strong> não altera o
+        período do pêndulo; já a <strong>gravidade</strong> altera o período de oscilação.
+      </div>
+    </div>
+
+    <div class="info">
+      1) Permita o uso da câmera.<br>
+      2) Aponte para um marcador <strong>Hiro</strong>.<br>
+      3) Use os controles abaixo para alterar o comprimento, o ângulo inicial, a gravidade e a massa.
+    </div>
+
+    <!-- Controles -->
+    <div class="controles">
+      <div class="linha-controle">
+        <label for="lengthSlider">
+          Comprimento do fio (em metros): 
+          <span id="lengthValue">1.0</span> m
+        </label>
+        <input id="lengthSlider" type="range" min="0.5" max="2.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="linha-controle">
+        <label for="angleSlider">
+          Ângulo inicial (em graus): 
+          <span id="angleValue">30</span>°
+        </label>
+        <input id="angleSlider" type="range" min="5" max="60" step="1" value="30">
+      </div>
+
+      <div class="linha-controle">
+        <label for="gravitySlider">
+          Gravidade (módulo, em m/s²): 
+          <span id="gravitySliderValue">9.8</span> m/s²
+        </label>
+        <input id="gravitySlider" type="range" min="1.0" max="25.0" step="0.1" value="9.8">
+      </div>
+
+      <div class="linha-controle">
+        <label for="massSlider">
+          Massa da esfera (em kg): 
+          <span id="massSliderValue">1.0</span> kg
+        </label>
+        <input id="massSlider" type="range" min="0.1" max="5.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="linha-botoes">
+        <button id="toggleButton">Iniciar</button>
+        <button id="resetButton">Resetar</button>
+        <button class="preset" data-g="1.6">Lua</button>
+        <button class="preset" data-g="3.7">Marte</button>
+        <button class="preset" data-g="9.8">Terra</button>
+        <button class="preset" data-g="24.8">Júpiter</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -----------------------------
+    // Referências aos elementos HTML / A-Frame
+    // -----------------------------
+    const lengthSlider = document.getElementById("lengthSlider");
+    const angleSlider  = document.getElementById("angleSlider");
+    const gravitySlider = document.getElementById("gravitySlider");
+    const massSlider    = document.getElementById("massSlider");
+
+    const lengthValue   = document.getElementById("lengthValue");
+    const angleValue    = document.getElementById("angleValue");
+    const gravitySliderValue = document.getElementById("gravitySliderValue");
+    const massSliderValue    = document.getElementById("massSliderValue");
+
+    const gravityValueLabel = document.getElementById("gravityValue");
+    const massValueLabel    = document.getElementById("massValue");
+
+    const toggleButton = document.getElementById("toggleButton");
+    const resetButton  = document.getElementById("resetButton");
+    const presetButtons = document.querySelectorAll(".preset");
+
+    // Entidades 3D
+    const penduloRig = document.getElementById("penduloRig");
+    const haste      = document.getElementById("haste");
+    const massa      = document.getElementById("massa");
+
+    // -----------------------------
+    // Parâmetros físicos
+    // -----------------------------
+    let g = parseFloat(gravitySlider.value);   // gravidade variável
+    let mass = parseFloat(massSlider.value);   // massa (não entra na equação ideal)
+
+    let lengthMeters = parseFloat(lengthSlider.value); // comprimento do fio em m
+    let theta = toRadians(parseFloat(angleSlider.value)); // ângulo inicial (rad)
+    let omega = 0; // velocidade angular (rad/s)
+
+    // Controle da animação
+    let rodando  = false;
+    let lastTime = null;
+
+    // -----------------------------
+    // Funções auxiliares
+    // -----------------------------
+    function toRadians(graus) {
+      return graus * Math.PI / 180;
+    }
+
+    // Atualiza visualmente o tamanho da haste e a posição da massa
+    function atualizarGeometriaPendulo() {
+      const L = lengthMeters;
+
+      haste.setAttribute("height", L);
+      haste.setAttribute("position", `0 ${-L/2} 0`);
+      massa.setAttribute("position", `0 ${-L} 0`);
+    }
+
+    // Atualiza a rotação do pêndulo de acordo com o ângulo theta
+    function atualizarRotacaoPendulo() {
+      const angGraus = theta * 180 / Math.PI;
+      penduloRig.setAttribute("rotation", `0 0 ${-angGraus}`);
+    }
+
+    // Atualiza a física (equação do pêndulo simples ideal)
+    function atualizarFisica(dt) {
+      // d²theta/dt² = -(g/L) * sin(theta)
+      const alpha = -(g / lengthMeters) * Math.sin(theta);
+      omega += alpha * dt;
+      theta += omega * dt;
+    }
+
+    // Loop de animação
+    function animar(timestamp) {
+      if (!rodando) {
+        atualizarRotacaoPendulo();
+        return;
+      }
+
+      if (!lastTime) {
+        lastTime = timestamp;
+      }
+
+      const deltaMs = timestamp - lastTime;
+      const dt      = deltaMs / 1000; // segundos
+      lastTime      = timestamp;
+
+      atualizarFisica(dt);
+      atualizarRotacaoPendulo();
+
+      requestAnimationFrame(animar);
+    }
+
+    // -----------------------------
+    // Eventos dos controles
+    // -----------------------------
+    lengthSlider.addEventListener("input", () => {
+      lengthMeters = parseFloat(lengthSlider.value);
+      lengthValue.textContent = lengthMeters.toFixed(1);
+      omega = 0;
+      atualizarGeometriaPendulo();
+    });
+
+    angleSlider.addEventListener("input", () => {
+      const angDeg = parseFloat(angleSlider.value);
+      angleValue.textContent = angDeg;
+      theta = toRadians(angDeg);
+      omega = 0;
+      atualizarRotacaoPendulo();
+    });
+
+    gravitySlider.addEventListener("input", () => {
+      g = parseFloat(gravitySlider.value);
+      gravitySliderValue.textContent = g.toFixed(1);
+      gravityValueLabel.textContent  = g.toFixed(1);
+      omega = 0;
+    });
+
+    massSlider.addEventListener("input", () => {
+      mass = parseFloat(massSlider.value);
+      massSliderValue.textContent = mass.toFixed(1);
+      massValueLabel.textContent  = mass.toFixed(1);
+      // intencionalmente NÃO usamos "mass" na equação do movimento
+    });
+
+    toggleButton.addEventListener("click", () => {
+      rodando = !rodando;
+      if (rodando) {
+        toggleButton.textContent = "Pausar";
+        lastTime = null;
+        requestAnimationFrame(animar);
+      } else {
+        toggleButton.textContent = "Iniciar";
+      }
+    });
+
+    resetButton.addEventListener("click", () => {
+      rodando = false;
+      toggleButton.textContent = "Iniciar";
+      omega = 0;
+      theta = toRadians(parseFloat(angleSlider.value));
+      atualizarRotacaoPendulo();
+    });
+
+    // Presets de gravidade (Lua, Marte, Terra, Júpiter)
+    presetButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const gValor = parseFloat(btn.getAttribute("data-g"));
+        g = gValor;
+        gravitySlider.value = gValor;
+        gravitySliderValue.textContent = gValor.toFixed(1);
+        gravityValueLabel.textContent  = gValor.toFixed(1);
+        omega = 0;
+      });
+    });
+
+    // -----------------------------
+    // Inicialização
+    // -----------------------------
+    gravitySliderValue.textContent = g.toFixed(1);
+    gravityValueLabel.textContent  = g.toFixed(1);
+    massSliderValue.textContent    = mass.toFixed(1);
+    massValueLabel.textContent     = mass.toFixed(1);
+
+    atualizarGeometriaPendulo();
+    atualizarRotacaoPendulo();
+  </script>
+</body>
+</html>
